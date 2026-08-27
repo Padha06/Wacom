@@ -442,20 +442,21 @@ function redirectLogin(res, dest) {
   res.end();
 }
 
-server.listen(config.port, '0.0.0.0', () => {
-  console.log('Signing server running on port ' + config.port);
-  console.log('  Login:  /login');
-  console.log('  Monitor: /m/<STATION>');
-  console.log('  Kiosk:   /s/<STATION>');
-  console.log('  App users loaded: ' + appUsers.size + (appUsers.size ? ' (' + Array.from(appUsers.keys()).join(', ') + ')' : ' - SET APP_USERS env!'));
-  if (appUsers.size === 0) {
-    console.warn('  WARNING: No APP_USERS configured. Login will fail. Set APP_USERS="user1:pass1|STATION1,user2:pass2|STATION2" in Vercel env (no quotes around whole value).');
-  }
-  // Vercel stateless warning - sessions are in-memory
-  if (process.env.VERCEL) {
-    console.warn('  WARNING: Running on Vercel (serverless) - in-memory sessions will not persist across invocations. Prefer Railway for stateful signing server.');
-  }
-});
+if (!process.env.VERCEL) {
+  server.listen(config.port, '0.0.0.0', () => {
+    console.log('Signing server running on port ' + config.port);
+    console.log('  Login:  /login');
+    console.log('  Monitor: /m/<STATION>');
+    console.log('  Kiosk:   /s/<STATION>');
+    console.log('  App users loaded: ' + appUsers.size + (appUsers.size ? ' (' + Array.from(appUsers.keys()).join(', ') + ')' : ' - SET APP_USERS env!'));
+    if (appUsers.size === 0) {
+      console.warn('  WARNING: No APP_USERS configured. Login will fail. Set APP_USERS="user1:pass1|STATION1,user2:pass2|STATION2" in env (no quotes).');
+    }
+  });
+} else {
+  console.log('Running on Vercel - serverless mode, app users: ' + appUsers.size);
+}
 
-// Export for Vercel serverless wrapper
+// Export for Vercel serverless wrapper - Vercel expects (req,res) function
 module.exports = server;
+module.exports.default = server;
