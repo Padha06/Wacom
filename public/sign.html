@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Electronic Signpad</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="sign-body">
+  <header class="topbar">
+    <h1>Authorized Signature</h1>
+    <span id="stationTag" class="status waiting">STATION</span>
+    <div id="status" class="status waiting">Waiting for a signature request…</div>
+  </header>
+
+  <div id="noSession" class="page">
+    <p class="hint big">Waiting for a document from the Signature Monitoring portal…</p>
+  </div>
+
+  <div id="signView" class="page hidden">
+    <div id="reportPaper"></div>
+
+    <section class="actions">
+      <button id="btnClear" class="btn" disabled>Clear</button>
+      <button id="btnSave" class="btn primary" disabled>Save Signature</button>
+    </section>
+  </div>
+
+  <div id="successBox" class="hidden">
+    <div class="success">Signature saved for <b id="sDoc"></b></div>
+  </div>
+
+  <script src="/render.js"></script>
+  <script src="/app.js"></script>
+  <script src="/sign.js"></script>
+</body>
+</html>

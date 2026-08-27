@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Treasury Signature Monitoring</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="monitor-body">
+  <header class="topbar">
+    <h1>Treasury Signature Monitoring</h1>
+    <div class="topbar-right">
+      <span id="stationChip" class="chip"></span>
+      <div id="tokenChip" class="status waiting">Token: …</div>
+      <div id="mStatus" class="status waiting">Connecting…</div>
+    </div>
+  </header>
+
+  <!-- Waiting view -->
+  <section id="waitView" class="page">
+    <div class="wait-box">
+      <div class="wait-icon">✍</div>
+      <h2>Waiting for a document to sign…</h2>
+      <p class="hint">Use <b>Take Vendor Signature</b> on the treasury transaction in Business Central to send a document here.</p>
+    </div>
+  </section>
+
+  <!-- Report view -->
+  <section id="reportView" class="page hidden">
+    <div class="report-toolbar">
+      <div class="report-toolbar-right">
+        <span id="sessionDoc" class="chip"></span>
+        <span id="sigState" class="status waiting">Waiting…</span>
+        <button id="btnEndSession" class="btn" disabled>Ready for Next</button>
+      </div>
+    </div>
+    <div id="reportPaper"></div>
+  </section>
+
+  <script src="/render.js"></script>
+  <script src="/app.js"></script>
+  <script src="/monitor.js"></script>
+</body>
+</html>

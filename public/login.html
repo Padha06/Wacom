@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign In - Wacom Signing Station</title>
+  <link rel="stylesheet" href="/style.css?v=4">
+</head>
+<body class="login-body">
+  <div class="login-card">
+    <h1>Wacom Signing Station</h1>
+    <p class="login-sub">Sign in with your username to open your station.</p>
+    <form id="loginForm" method="post" action="/api/login" autocomplete="off">
+      <input type="hidden" name="redirect" id="redirectField" value="">
+      <label class="login-label">Username</label>
+      <input id="username" name="username" class="login-input" type="text" autocomplete="username" required>
+      <label class="login-label">Password</label>
+      <input id="password" name="password" class="login-input" type="password" autocomplete="current-password" required>
+      <div id="loginError" class="login-error hidden"></div>
+      <button id="loginBtn" class="btn primary login-btn" type="submit">Sign In</button>
+      <div id="loginInfo" class="login-info hidden"></div>
+    </form>
+  </div>
+  <script>
+    (function () {
+      var q = new URLSearchParams(window.location.search);
+      var rf = document.getElementById('redirectField');
+      if (rf && q.get('redirect')) rf.value = q.get('redirect');
+      if (q.get('error')) {
+        var e = document.getElementById('loginError');
+        if (e) { e.textContent = 'Invalid username or password.'; e.classList.remove('hidden'); }
+      }
+    })();
+  </script>
+  <script src="/login.js"></script>
+</body>
+</html>

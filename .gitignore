@@ -1,0 +1,18 @@
+# Secrets / local config - never commit
+config.json
+
+# Node
+node_modules/
+
+# Logs
+*.log
+server*.log
+server-error.log
+
+# Profiles / browser cache
+signpad-profile/
+browser-profile/
+
+# OS
+Thumbs.db
+.DS_Store

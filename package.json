@@ -1,0 +1,13 @@
+{
+  "name": "signing-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Centralized treasury signature capture server (Railway-hosted)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

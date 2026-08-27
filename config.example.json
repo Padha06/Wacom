@@ -1,0 +1,11 @@
+{
+  "_comment": "Local dev fallback. In production (Railway) use env vars: PORT, TENANT_ID, ENVIRONMENT, COMPANY, COMPANY_GUID, CLIENT_ID, CLIENT_SECRET, APP_USERS.",
+  "port": 3000,
+  "tenantId": "eb08b186-76db-468e-8318-4c09fcf5cf92",
+  "environment": "USDEV0323",
+  "company": "S&K Supermarche",
+  "companyGuid": "5f19a4ad-aa01-f111-8405-002248c1699b",
+  "clientId": "REPLACE_WITH_AAD_APP_CLIENT_ID",
+  "clientSecret": "REPLACE_WITH_AAD_APP_CLIENT_SECRET",
+  "appUsers": "alice:pass123|CON001,bob:pass456|CON002"
+}
