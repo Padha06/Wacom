@@ -90,9 +90,16 @@ function initPad() {
         saving = false;
         return;
       }
+      var data = await res.json().catch(function () { return {}; });
       document.getElementById('signView').classList.add('hidden');
       document.getElementById('successBox').classList.remove('hidden');
       document.getElementById('sDoc').textContent = currentSession.record.documentNo;
+      var pdfEl = document.getElementById('sPdf');
+      if (pdfEl) {
+        pdfEl.textContent = data.pdfUploaded
+          ? 'PDF attached: ' + data.fileName
+          : 'Signature saved (PDF upload failed' + (data.pdfError ? ': ' + data.pdfError : '') + ')';
+      }
       setStatus('Signed', 'signed');
       saving = false;
       setTimeout(function () {

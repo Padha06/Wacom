@@ -39,6 +39,7 @@ const config = {
 };
 
 const bc = require('./bc.js')(config);
+const { buildSignedPdf } = require('./pdf.js');
 
 // ---- Login users: APP_USERS = "user1:pass1|STATION1,user2:pass2|STATION2" ----
 // Each entry maps a login username+password to a BC station code.
@@ -404,9 +405,27 @@ const handler = async (req, res) => {
           await bc.saveSignature(sesh.transactionType, sesh.documentNo, body.base64);
           sesh.status = 'signed';
           sesh.savedAt = new Date().toISOString();
+
+          // Build the full signed PDF (report + signature) and upload it as an
+          // attachment to the same treasury transaction.
+          const pdfResult = { fileName: '', pdfUploaded: false, pdfError: null };
+          try {
+            const pdfBase64 = await buildSignedPdf(sesh.record, body.base64);
+            pdfResult.fileName = makeFileName();
+            await bc.uploadDocument(sesh.transactionType, sesh.documentNo, pdfResult.fileName, pdfBase64);
+            pdfResult.pdfUploaded = true;
+          } catch (pdfErr) {
+            pdfResult.pdfError = String(pdfErr.message || pdfErr);
+            console.error('[pdf] upload failed:', pdfResult.pdfError);
+          }
+          if (pdfResult.pdfUploaded) sendEvent(sesh, 'pdfSaved', { fileName: pdfResult.fileName });
+
           try { await bc.completeDispatch(sesh.transactionType, sesh.documentNo); } catch (e) {}
           sendEvent(sesh, 'saved', { savedAt: sesh.savedAt });
-          return sendJson(res, 200, { ok: true, savedAt: sesh.savedAt });
+          return sendJson(res, 200, {
+            ok: true, savedAt: sesh.savedAt,
+            fileName: pdfResult.fileName, pdfUploaded: pdfResult.pdfUploaded, pdfError: pdfResult.pdfError
+          });
         } catch (err) {
           sesh.status = 'signing';
           sesh.error = String(err.message || err);
@@ -440,6 +459,13 @@ function redirectTo(res, location) {
 function redirectLogin(res, dest) {
   res.writeHead(302, { Location: '/login' + (dest ? '?redirect=' + encodeURIComponent(dest) : '') });
   res.end();
+}
+
+// Generate an attachment file name, always *.pdf (e.g. treasuredoc-20260827-a1b2c3.pdf).
+function makeFileName() {
+  const ts = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const rnd = crypto.randomBytes(3).toString('hex');
+  return 'treasuredoc-' + ts + '-' + rnd + '.pdf';
 }
 
 const server = http.createServer(handler);

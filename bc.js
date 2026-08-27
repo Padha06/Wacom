@@ -53,7 +53,10 @@ module.exports = function (config) {
     options = options || {};
     const tok = await ensureToken();
     const headers = Object.assign({ Authorization: 'Bearer ' + tok }, options.headers || {});
-    let url = urlPath + (urlPath.indexOf('?') >= 0 ? '&' : '?') + companyQuery;
+    let url = urlPath;
+    if (useCompanyQuery !== false) {
+      url = urlPath + (urlPath.indexOf('?') >= 0 ? '&' : '?') + companyQuery;
+    }
     let res = await fetch(url, Object.assign({}, options, { headers: headers }));
     if (res.status === 401) {
       await acquireToken();
@@ -137,6 +140,23 @@ module.exports = function (config) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
+      return res;
+    },
+
+    // POST the full signed PDF as an attachment to the treasury transaction.
+    async uploadDocument(transactionType, documentNo, fileName, base64Content) {
+      const path = apiBase + '/ODataV4/TreasureAttachment_UploadDocumentByKey?company=' + encodeURIComponent(config.companyGuid);
+      const body = {
+        transactionType: String(transactionType),
+        documentNo: String(documentNo),
+        fileName: String(fileName),
+        base64Content: String(base64Content || '')
+      };
+      const res = await api(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      }, false);
       return res;
     }
   };
