@@ -265,7 +265,7 @@ function sendEvent(sesh, name, data) {
   }
 }
 
-const server = http.createServer(async (req, res) => {
+const handler = async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   const p = url.pathname;
 
@@ -430,7 +430,7 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 500, { error: String(err.message || err) });
     }
   }
-});
+};
 
 function redirectTo(res, location) {
   res.writeHead(302, { Location: location });
@@ -441,6 +441,8 @@ function redirectLogin(res, dest) {
   res.writeHead(302, { Location: '/login' + (dest ? '?redirect=' + encodeURIComponent(dest) : '') });
   res.end();
 }
+
+const server = http.createServer(handler);
 
 if (!process.env.VERCEL) {
   server.listen(config.port, '0.0.0.0', () => {
@@ -457,6 +459,7 @@ if (!process.env.VERCEL) {
   console.log('Running on Vercel - serverless mode, app users: ' + appUsers.size);
 }
 
-// Export for Vercel serverless wrapper - Vercel expects (req,res) function
-module.exports = server;
-module.exports.default = server;
+// Export handler for Vercel serverless - must be a function (req,res)
+module.exports = handler;
+module.exports.default = handler;
+module.exports.server = server;
