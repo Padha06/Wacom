@@ -3,16 +3,29 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+// Load .env locally if present (Vercel/Railway inject env vars directly, so this is a no-op in prod)
+try { require('dotenv').config(); } catch (e) {}
+
 const ROOT = path.join(__dirname, 'public');
 
-// ---- Configuration from environment (Railway) with config.json fallback (local) ----
+// ---- Configuration from environment (Vercel/Railway) with config.json fallback (local) ----
 let fileConfig = {};
 try { fileConfig = require('./config.json'); } catch (e) {}
 
+function stripQuotes(v) {
+  let s = String(v).trim();
+  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+    s = s.slice(1, -1);
+  }
+  return s;
+}
+
 function envOrFile(envName, fileKey, def) {
-  return process.env[envName] != null && process.env[envName] !== ''
-    ? process.env[envName]
-    : (fileConfig[fileKey] != null && fileConfig[fileKey] !== '' ? fileConfig[fileKey] : def);
+  const envRaw = process.env[envName];
+  if (envRaw != null && String(envRaw).trim() !== '') return stripQuotes(envRaw);
+  const fileVal = fileConfig[fileKey];
+  if (fileVal != null && String(fileVal).trim() !== '') return stripQuotes(fileVal);
+  return def;
 }
 
 const config = {
@@ -29,24 +42,35 @@ const bc = require('./bc.js')(config);
 
 // ---- Login users: APP_USERS = "user1:pass1|STATION1,user2:pass2|STATION2" ----
 // Each entry maps a login username+password to a BC station code.
+// Also supports legacy STATION_PINS fallback (warns), and strips quotes for Vercel copy-paste.
 const appUsers = new Map();
 function parseAppUsers(src) {
   appUsers.clear();
-  String(src || '')
+  const cleaned = stripQuotes(String(src || '').trim());
+  cleaned
     .split(',')
     .forEach(function (entry) {
-      entry = entry.trim();
+      entry = stripQuotes(entry.trim());
       if (!entry) return;
       const pipe = entry.indexOf('|');
-      const station = pipe > 0 ? entry.slice(pipe + 1).trim().toUpperCase() : '';
+      const station = pipe > 0 ? stripQuotes(entry.slice(pipe + 1).trim()).toUpperCase() : '';
       const cred = pipe > 0 ? entry.slice(0, pipe) : entry;
       const colon = cred.indexOf(':');
       if (colon > 0) {
-        appUsers.set(cred.slice(0, colon), { password: cred.slice(colon + 1), station });
+        const user = stripQuotes(cred.slice(0, colon).trim());
+        const pass = stripQuotes(cred.slice(colon + 1).trim());
+        if (user && pass && station) appUsers.set(user, { password: pass, station });
       }
     });
 }
-parseAppUsers(envOrFile('APP_USERS', 'appUsers', ''));
+let _appUsersSrc = envOrFile('APP_USERS', 'appUsers', '');
+if (!_appUsersSrc) {
+  const legacy = envOrFile('STATION_PINS', 'stationPins', '');
+  if (legacy) {
+    console.warn('[auth] APP_USERS empty - ignoring legacy STATION_PINS (different format). Set APP_USERS="user:pass|STATION,..."');
+  }
+}
+parseAppUsers(_appUsersSrc);
 
 // ---- Auth sessions: token -> { username, station, createdAt } ----
 const authSessions = new Map();
@@ -423,4 +447,15 @@ server.listen(config.port, '0.0.0.0', () => {
   console.log('  Login:  /login');
   console.log('  Monitor: /m/<STATION>');
   console.log('  Kiosk:   /s/<STATION>');
+  console.log('  App users loaded: ' + appUsers.size + (appUsers.size ? ' (' + Array.from(appUsers.keys()).join(', ') + ')' : ' - SET APP_USERS env!'));
+  if (appUsers.size === 0) {
+    console.warn('  WARNING: No APP_USERS configured. Login will fail. Set APP_USERS="user1:pass1|STATION1,user2:pass2|STATION2" in Vercel env (no quotes around whole value).');
+  }
+  // Vercel stateless warning - sessions are in-memory
+  if (process.env.VERCEL) {
+    console.warn('  WARNING: Running on Vercel (serverless) - in-memory sessions will not persist across invocations. Prefer Railway for stateful signing server.');
+  }
 });
+
+// Export for Vercel serverless wrapper
+module.exports = server;

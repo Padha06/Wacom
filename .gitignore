@@ -1,5 +1,7 @@
 # Secrets / local config - never commit
 config.json
+.env
+.env.local
 
 # Node
 node_modules/
