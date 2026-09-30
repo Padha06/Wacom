@@ -293,40 +293,41 @@ const handler = async (req, res) => {
         stationCode = String(params.get('stationCode') || '').trim();
       }
       const wantJson = ctype.indexOf('application/json') >= 0;
-      if (!u) {
-        if (wantJson) return sendJson(res, 400, { error: 'Username is required.' });
+      if (!u && !stationCode) {
+        if (wantJson) return sendJson(res, 400, { error: 'Please enter a Username or Station Code.' });
         return redirectTo(res, '/login?error=1');
       }
 
       // Validate user against Business Central Signpad User Setup API
-      const bcCheck = await bc.validateSignpadUser(u, stationCode);
-      if (bcCheck) {
-        if (bcCheck.notFound) {
-          if (wantJson) return sendJson(res, 401, { error: 'Invalid credentials. User is not registered in Business Central Signpad Setup.' });
-          return redirectTo(res, '/login?error=1');
-        }
+      const bcCheck = await bc.validateSignpadUser(u || stationCode, stationCode);
+      if (bcCheck && bcCheck.matched) {
         if (bcCheck.active === false) {
-          if (wantJson) return sendJson(res, 403, { error: 'Access denied: User signature setup is set to INACTIVE in Business Central.' });
+          if (wantJson) return sendJson(res, 403, { error: 'Access denied: User setup is set to INACTIVE in Business Central.' });
           return redirectTo(res, '/login?error=1');
         }
-      }
-
-      let targetStation = (bcCheck && (bcCheck.stationCode || bcCheck.userId)) ? (bcCheck.stationCode || bcCheck.userId) : u.toUpperCase();
-      if (appUsers.size > 0 && appUsers.has(u)) {
-        const user = appUsers.get(u);
-        if (user.password && user.password !== pw) {
-          if (wantJson) return sendJson(res, 401, { error: 'Invalid password.' });
-          return redirectTo(res, '/login?error=1');
+        const loggedUser = bcCheck.userId || bcCheck.wacomUserName || u;
+        const targetStation = (bcCheck.stationCode || bcCheck.userId || u || stationCode).toUpperCase();
+        const token = createAuthSession(loggedUser, targetStation);
+        res.setHeader('Set-Cookie', 'ws_token=' + encodeURIComponent(token) + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' + (AUTH_TTL_MS / 1000));
+        if (wantJson) {
+          return sendJson(res, 200, { ok: true, token: token, station: targetStation, username: loggedUser });
         }
-        if (user.station) targetStation = user.station;
+        return redirectTo(res, dest || ('/s/' + encodeURIComponent(targetStation)));
       }
 
-      const token = createAuthSession(u, targetStation.toUpperCase());
+      if (bcCheck && bcCheck.notFound) {
+        if (wantJson) return sendJson(res, 401, { error: 'User "' + (u || stationCode) + '" is not registered in Business Central Signpad User Setup.' });
+        return redirectTo(res, '/login?error=1');
+      }
+
+      // Fallback if BC setup API is empty or not uploaded yet
+      let targetStation = (stationCode || u).toUpperCase();
+      const token = createAuthSession(u || stationCode, targetStation);
       res.setHeader('Set-Cookie', 'ws_token=' + encodeURIComponent(token) + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' + (AUTH_TTL_MS / 1000));
       if (wantJson) {
-        return sendJson(res, 200, { ok: true, token: token, station: targetStation.toUpperCase(), username: u });
+        return sendJson(res, 200, { ok: true, token: token, station: targetStation, username: u || stationCode });
       }
-      return redirectTo(res, dest || ('/s/' + encodeURIComponent(targetStation.toUpperCase())));
+      return redirectTo(res, dest || ('/s/' + encodeURIComponent(targetStation)));
     }
 
     if (p === '/api/logout' && req.method === 'POST') {

@@ -169,7 +169,7 @@ module.exports = function (config) {
         const path = apiBase + '/api/signpad/treasury/v1.0/signpadUsers';
         const body = await api(path);
         const list = body.value || [];
-        if (list.length === 0) return null; // If setup is empty, fallback to username
+        if (!list || list.length === 0) return { emptySetup: true };
 
         const searchUser = String(username || '').trim().toLowerCase();
         const searchStation = String(stationCode || '').trim().toLowerCase();
@@ -180,11 +180,12 @@ module.exports = function (config) {
           const uStation = String(u.Station_Code || '').trim().toLowerCase();
           const isActive = u.Active !== false;
 
-          const userMatch = (searchUser && (uId === searchUser || uWacom === searchUser || uStation === searchUser));
-          const stationMatch = (!searchStation || uStation === searchStation || uId === searchStation);
+          const userMatch = searchUser && (uId === searchUser || uWacom === searchUser || uStation === searchUser);
+          const stationMatch = !searchStation || (uStation === searchStation || uId === searchStation || uWacom === searchStation);
 
           if (userMatch && stationMatch) {
             return {
+              matched: true,
               userId: u.User_ID,
               wacomUserName: u.Wacom_User_Name,
               stationCode: u.Station_Code,
@@ -194,8 +195,8 @@ module.exports = function (config) {
         }
         return { notFound: true };
       } catch (err) {
-        console.error('[bc] validateSignpadUser error:', err.message);
-        return null;
+        console.warn('[bc] validateSignpadUser warning:', err.message);
+        return { apiError: true, message: err.message };
       }
     }
   };
