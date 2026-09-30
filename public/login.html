@@ -30,7 +30,11 @@
       if (rf && q.get('redirect')) rf.value = q.get('redirect');
       if (q.get('error')) {
         var e = document.getElementById('loginError');
-        if (e) { e.textContent = 'Invalid username or password.'; e.classList.remove('hidden'); }
+        if (e) {
+          var msg = q.get('error_msg') || 'Sign-in failed. Please check your username or station code.';
+          e.textContent = msg;
+          e.classList.remove('hidden');
+        }
       }
     })();
   </script>
