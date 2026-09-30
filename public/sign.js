@@ -138,7 +138,16 @@ async function poll() {
       setStatus('Station ' + (STATION || '') + ': Ready & waiting for document…', 'waiting');
       return;
     }
-    var s = await res.json();
+    if (!res.ok) {
+      if (currentSession) { currentSession = null; handledId = null; showNoSession(); }
+      setStatus('Station ' + (STATION || '') + ': Ready & waiting for document…', 'waiting');
+      return;
+    }
+    var s = await res.json().catch(function () { return null; });
+    if (!s) {
+      setStatus('Station ' + (STATION || '') + ': Ready & waiting for document…', 'waiting');
+      return;
+    }
     if (s.id !== handledId) {
       handledId = s.id;
       currentSession = s;
@@ -151,7 +160,7 @@ async function poll() {
       }
     }
   } catch (e) {
-    setStatus('Cannot reach signing server.', 'error');
+    setStatus('Station ' + (STATION || '') + ': Ready & waiting for document…', 'waiting');
   }
 }
 

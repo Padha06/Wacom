@@ -104,25 +104,34 @@ module.exports = function (config) {
     // Signature" action). Dispatches are routed to a station in BC via
     // Signpad Station Users -> user's Station Code, and filtered here by Station_Code.
     async getOpenDispatch(station) {
-      let filter = "Status eq 'Open'";
-      if (station) {
-        const target = esc(station);
-        const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(target);
-        if (isGuid) {
-          filter += " and (Station_Code eq '" + target + "' or Assigned_By eq '" + target + "' or SystemCreatedBy eq " + target + ")";
-        } else {
-          filter += " and (Station_Code eq '" + target + "' or Assigned_By eq '" + target + "')";
+      try {
+        let filter = "Status eq 'Open'";
+        if (station) {
+          const target = esc(station);
+          const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(target);
+          if (isGuid) {
+            filter += " and (Station_Code eq '" + target + "' or Assigned_By eq '" + target + "' or SystemCreatedBy eq " + target + ")";
+          } else {
+            filter += " and (Station_Code eq '" + target + "' or Assigned_By eq '" + target + "')";
+          }
         }
-      }
-      const path = apiBase + '/api/signpad/treasury/v1.0/signpadDispatches?$filter=' + encodeURIComponent(filter) + '&$orderby=Assigned_On desc';
-      const body = await api(path);
-      const list = body.value || [];
-      for (const d of list) {
-        if (d.Transaction_Type && d.Document_No) {
-          return { transactionType: d.Transaction_Type, documentNo: d.Document_No };
+        const queryParams = new URLSearchParams({
+          '$filter': filter,
+          '$orderby': 'Assigned_On desc'
+        });
+        const path = apiBase + '/api/signpad/treasury/v1.0/signpadDispatches?' + queryParams.toString();
+        const body = await api(path);
+        const list = body.value || [];
+        for (const d of list) {
+          if (d.Transaction_Type && d.Document_No) {
+            return { transactionType: d.Transaction_Type, documentNo: d.Document_No };
+          }
         }
+        return null;
+      } catch (err) {
+        console.warn('[bc] getOpenDispatch warning:', err.message);
+        return null;
       }
-      return null;
     },
 
     // Close a dispatch after the signature has been saved
