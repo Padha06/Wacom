@@ -161,6 +161,43 @@ module.exports = function (config) {
         body: JSON.stringify(body)
       }, false);
       return res;
+    },
+
+    // Query BC for active Signpad User Setup to validate user login & get station code
+    async validateSignpadUser(username, stationCode) {
+      try {
+        const path = apiBase + '/api/signpad/treasury/v1.0/signpadUsers';
+        const body = await api(path);
+        const list = body.value || [];
+        if (list.length === 0) return null; // If setup is empty, fallback to username
+
+        const searchUser = String(username || '').trim().toLowerCase();
+        const searchStation = String(stationCode || '').trim().toLowerCase();
+
+        for (const u of list) {
+          const uId = String(u.User_ID || '').trim().toLowerCase();
+          const uWacom = String(u.Wacom_User_Name || '').trim().toLowerCase();
+          const uStation = String(u.Station_Code || '').trim().toLowerCase();
+          const isActive = u.Active !== false;
+
+          const userMatch = (searchUser && (uId === searchUser || uWacom === searchUser || uStation === searchUser));
+          const stationMatch = (!searchStation || uStation === searchStation || uId === searchStation);
+
+          if (userMatch && stationMatch) {
+            return {
+              userId: u.User_ID,
+              wacomUserName: u.Wacom_User_Name,
+              stationCode: u.Station_Code,
+              active: isActive
+            };
+          }
+        }
+        return { notFound: true };
+      } catch (err) {
+        console.error('[bc] validateSignpadUser error:', err.message);
+        return null;
+      }
+    }
     }
   };
 };

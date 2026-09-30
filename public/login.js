@@ -44,7 +44,9 @@
 
   form.addEventListener('submit', async function (ev) {
     ev.preventDefault();
+    var stationEl = document.getElementById('stationCode');
     var username = userEl.value.trim();
+    var stationCode = stationEl ? stationEl.value.trim() : '';
     var password = passEl.value;
     if (!username) { showError('Enter your username.'); return; }
     btn.disabled = true;
@@ -53,7 +55,7 @@
       var res = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username, password: password })
+        body: JSON.stringify({ username: username, stationCode: stationCode, password: password })
       });
       var j = await res.json().catch(function () { return {}; });
       if (!res.ok) {

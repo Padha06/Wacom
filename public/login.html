@@ -12,8 +12,10 @@
     <p class="login-sub">Sign in with your username to open your station.</p>
     <form id="loginForm" method="post" action="/api/login" autocomplete="off">
       <input type="hidden" name="redirect" id="redirectField" value="">
-      <label class="login-label">Username</label>
-      <input id="username" name="username" class="login-input" type="text" autocomplete="username" required>
+      <label class="login-label">Username / User ID</label>
+      <input id="username" name="username" class="login-input" type="text" autocomplete="username" placeholder="e.g. JOHN" required>
+      <label class="login-label">Station Code (Optional)</label>
+      <input id="stationCode" name="stationCode" class="login-input" type="text" placeholder="e.g. CABIN1">
       <label class="login-label">Password (Optional)</label>
       <input id="password" name="password" class="login-input" type="password" autocomplete="current-password">
       <div id="loginError" class="login-error hidden"></div>
