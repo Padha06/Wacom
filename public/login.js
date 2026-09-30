@@ -23,22 +23,21 @@
   // After a successful login, go to the intended station page. The server appends
   // ?redirect=/m/CON001 when a logged-out user tries to open a station page; fall
   // back to document.referrer or this user's monitor.
-  function returnTo(dest) {
-    var target = null;
+  function returnTo(dest, station, token) {
+    var tokenSuffix = token ? '?token=' + encodeURIComponent(token) : '';
     if (dest) {
       try {
         var u = new URL(dest, window.location.origin);
-        if (u.origin === window.location.origin && u.pathname.match(/^\/[sm]\//)) target = u.href;
+        if (u.origin === window.location.origin && u.pathname.match(/^\/[sm]\//)) {
+          window.location.replace(u.pathname + tokenSuffix);
+          return true;
+        }
       } catch (e) {}
     }
-    if (!target) {
-      var ref = document.referrer;
-      try {
-        var v = new URL(ref, window.location.origin);
-        if (v.origin === window.location.origin && v.pathname !== '/login') target = v.href;
-      } catch (e) {}
+    if (station) {
+      window.location.replace('/s/' + encodeURIComponent(station) + tokenSuffix);
+      return true;
     }
-    if (target) { window.location.href = target; return true; }
     return false;
   }
 
@@ -48,7 +47,7 @@
     var username = userEl.value.trim();
     var stationCode = stationEl ? stationEl.value.trim() : '';
     var password = passEl.value;
-    if (!username) { showError('Enter your username.'); return; }
+    if (!username && !stationCode) { showError('Enter your username or station code.'); return; }
     btn.disabled = true;
     errEl.classList.add('hidden');
     try {
@@ -59,18 +58,18 @@
       });
       var j = await res.json().catch(function () { return {}; });
       if (!res.ok) {
-        showError(j.error || 'Login failed. Check your username and password.');
+        showError(j.error || 'Login failed. Please check your credentials.');
         btn.disabled = false;
         return;
       }
-      var qdest = new URLSearchParams(window.location.search).get('redirect');
-      if (!returnTo(qdest)) {
-        // Default: send this user to their own station's kiosk (sign) page.
-        showInfo('Sign-in successful for ' + j.station + ' — redirecting…');
-        setTimeout(function () {
-          window.location.replace('/s/' + encodeURIComponent(j.station));
-        }, 250);
+      if (j.token && typeof localStorage !== 'undefined') {
+        localStorage.setItem('ws_token', j.token);
       }
+      showInfo('Sign-in successful for station ' + (j.station || stationCode || username) + ' — opening…');
+      var qdest = new URLSearchParams(window.location.search).get('redirect');
+      setTimeout(function () {
+        returnTo(qdest, j.station || stationCode || username, j.token);
+      }, 150);
     } catch (e) {
       showError('Cannot reach the server: ' + e.message);
       btn.disabled = false;

@@ -335,12 +335,12 @@ const handler = async (req, res) => {
       }
 
       const token = createAuthSession(loggedUser, targetStation);
-      res.setHeader('Set-Cookie', 'ws_token=' + encodeURIComponent(token) + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' + (AUTH_TTL_MS / 1000));
+      res.setHeader('Set-Cookie', 'ws_token=' + encodeURIComponent(token) + '; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age=' + (AUTH_TTL_MS / 1000));
       
       if (wantJson) {
         return sendJson(res, 200, { ok: true, token: token, station: targetStation, username: loggedUser });
       }
-      return redirectTo(res, dest || ('/s/' + encodeURIComponent(targetStation)));
+      return redirectTo(res, dest || ('/s/' + encodeURIComponent(targetStation) + '?token=' + encodeURIComponent(token)));
     }
 
     if (p === '/api/logout' && req.method === 'POST') {

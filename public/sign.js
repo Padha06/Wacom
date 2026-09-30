@@ -3,8 +3,19 @@ var STATION = '';
 (function () {
   var m = window.location.pathname.match(/^\/[sm]\/([A-Za-z0-9_-]+)/i);
   if (m) STATION = m[1].toUpperCase();
+  var q = new URLSearchParams(window.location.search);
+  var tok = q.get('token');
+  if (tok && typeof localStorage !== 'undefined') {
+    localStorage.setItem('ws_token', tok);
+  }
 })();
-function apiUrl(p) { return p; }
+
+function apiUrl(p) {
+  var q = new URLSearchParams(window.location.search);
+  var tok = q.get('token') || (typeof localStorage !== 'undefined' ? localStorage.getItem('ws_token') : '');
+  if (!tok) return p;
+  return p + (p.indexOf('?') >= 0 ? '&' : '?') + 'token=' + encodeURIComponent(tok);
+}
 
 var pad = null;
 var currentSession = null;
