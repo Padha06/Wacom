@@ -13,8 +13,11 @@ var STATION = '';
 function apiUrl(p) {
   var q = new URLSearchParams(window.location.search);
   var tok = q.get('token') || (typeof localStorage !== 'undefined' ? localStorage.getItem('ws_token') : '');
-  if (!tok) return p;
-  return p + (p.indexOf('?') >= 0 ? '&' : '?') + 'token=' + encodeURIComponent(tok);
+  var params = [];
+  if (STATION) params.push('station=' + encodeURIComponent(STATION));
+  if (tok) params.push('token=' + encodeURIComponent(tok));
+  if (params.length === 0) return p;
+  return p + (p.indexOf('?') >= 0 ? '&' : '?') + params.join('&');
 }
 
 var pad = null;
@@ -130,13 +133,9 @@ async function poll() {
   if (saving) return;
   try {
     var res = await fetch(apiUrl('/api/session/current'));
-    if (res.status === 401) {
-      setStatus('Session expired - redirecting to login…', 'error');
-      setTimeout(function () { window.location.href = '/login'; }, 800);
-      return;
-    }
-    if (res.status === 404) {
-      if (currentSession) { currentSession = null; handledId = null; showNoSession(); setStatus('Waiting for a signature request…', 'waiting'); }
+    if (res.status === 401 || res.status === 404) {
+      if (currentSession) { currentSession = null; handledId = null; showNoSession(); }
+      setStatus('Station ' + (STATION || '') + ': Ready & waiting for document…', 'waiting');
       return;
     }
     var s = await res.json();

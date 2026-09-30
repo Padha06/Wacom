@@ -14,8 +14,11 @@ var STATION = '';
 function apiUrl(p) {
   var q = new URLSearchParams(window.location.search);
   var tok = q.get('token') || (typeof localStorage !== 'undefined' ? localStorage.getItem('ws_token') : '');
-  if (!tok) return p;
-  return p + (p.indexOf('?') >= 0 ? '&' : '?') + 'token=' + encodeURIComponent(tok);
+  var params = [];
+  if (STATION) params.push('station=' + encodeURIComponent(STATION));
+  if (tok) params.push('token=' + encodeURIComponent(tok));
+  if (params.length === 0) return p;
+  return p + (p.indexOf('?') >= 0 ? '&' : '?') + params.join('&');
 }
 
 var monitor = null;
@@ -109,9 +112,8 @@ async function waitForDispatch() {
       return;
     }
     if (!res.ok) {
-      if (res.status === 401) {
-        setStatus('Session expired - redirecting to login…', 'error');
-        setTimeout(function () { window.location.href = '/login'; }, 800);
+      if (res.status === 401 || res.status === 404) {
+        setStatus('Station ' + (STATION || '') + ': Ready & waiting for document…', 'waiting');
         return;
       }
       var err = await res.json();

@@ -348,17 +348,9 @@ const handler = async (req, res) => {
       return sendJson(res, 200, { ok: true });
     }
 
-    // Station-scoped pages require login, and the logged-in user's station
-    // must match the station in the path.
+    // Station-scoped pages serve the kiosk (sign.html) or monitor (monitor.html) directly
     const pageMatch = p.match(/^\/(s|m)\/([A-Za-z0-9_-]+)\/?$/);
     if (pageMatch) {
-      const station = pageMatch[2].toUpperCase();
-      const auth = authFor(req);
-      if (!auth) return redirectLogin(res, p + (url.search ? url.search : ''));
-      if (auth.station !== station) {
-        res.writeHead(403, { 'Content-Type': 'text/plain' });
-        res.end('Forbidden: you are logged in for station ' + auth.station + ' but requested ' + station + '.'); return;
-      }
       const page = pageMatch[1] === 's' ? '/sign.html' : '/monitor.html';
       return serveStatic(req, res, page);
     }
@@ -372,14 +364,14 @@ const handler = async (req, res) => {
 
       if (p === '/api/status' && req.method === 'GET') {
         const auth = authFor(req);
-        if (!auth) return sendJson(res, 401, { error: 'Not authenticated.' });
-        return sendJson(res, 200, { ok: true, station: auth.station, token: bc.tokenInfo() });
+        const st = (url.searchParams.get('station') || (auth && auth.station) || '').toUpperCase();
+        return sendJson(res, 200, { ok: true, station: st, token: bc.tokenInfo() });
       }
 
-      // The authenticated user's station is used for all signing endpoints.
+      // Station is determined from query ?station=, cookie/token auth, or header x-station
       const auth = authFor(req);
-      if (!auth) return sendJson(res, 401, { error: 'Not authenticated. Please log in.' });
-      const station = auth.station;
+      const station = (url.searchParams.get('station') || (auth && auth.station) || req.headers['x-station'] || '').toUpperCase();
+      if (!station) return sendJson(res, 400, { error: 'Station is required. Pass ?station=<STATION>' });
 
       if (p === '/api/session' && req.method === 'POST') {
         const body = JSON.parse((await readBody(req)) || '{}');
