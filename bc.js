@@ -143,41 +143,31 @@ module.exports = function (config) {
     // Signpad Station Users -> user's Station Code, and filtered here by Station_Code.
     async getOpenDispatch(station) {
       try {
-        const aliases = new Set();
-        if (station) {
-          const stClean = station.trim().toUpperCase();
-          aliases.add(stClean);
-          // Built-in station mappings for CON002 to ensure immediate match
-          if (stClean === 'CON002') {
-            aliases.add('MD.RAZA');
-            aliases.add('DHYEY.ADMIN');
-            aliases.add('RAZE');
-          }
-        }
+        if (!station) return null;
+        const targetStation = station.trim().toUpperCase();
 
-        // Find any mapped user IDs or names for this station from signpadUsers
+        // 1. Get all user IDs mapped to this specific station from signpadUsers
+        const mappedUsers = new Set();
         try {
           const userBody = await api(apiBase + '/api/signpad/treasury/v1.0/signpadUsers');
           const uList = userBody.value || [];
           for (const u of uList) {
             const uStation = String(u.Station_Code || '').trim().toUpperCase();
-            const uId = String(u.User_ID || '').trim().toUpperCase();
-            const uWacom = String(u.Wacom_User_Name || '').trim().toUpperCase();
-
-            if (aliases.has(uStation) || aliases.has(uId) || aliases.has(uWacom)) {
-              if (uStation) aliases.add(uStation);
+            if (uStation === targetStation) {
+              const uId = String(u.User_ID || '').trim().toUpperCase();
+              const uWacom = String(u.Wacom_User_Name || '').trim().toUpperCase();
               if (uId) {
-                aliases.add(uId);
-                if (uId.includes('\\')) aliases.add(uId.split('\\').pop());
+                mappedUsers.add(uId);
+                if (uId.includes('\\')) mappedUsers.add(uId.split('\\').pop());
               }
-              if (uWacom) aliases.add(uWacom);
+              if (uWacom) mappedUsers.add(uWacom);
             }
           }
         } catch (uErr) {
           console.warn('[bc] signpadUsers lookup in getOpenDispatch:', uErr.message);
         }
 
-        // In Business Central, Code fields are uppercase ('OPEN'), but we filter both
+        // 2. Fetch all open dispatches from BC
         const path = apiBase + '/api/signpad/treasury/v1.0/signpadDispatches?$filter=Status eq \'OPEN\' or Status eq \'Open\'';
         const body = await api(path);
         const list = body.value || [];
@@ -188,22 +178,23 @@ module.exports = function (config) {
         for (const d of list) {
           if (!d.Transaction_Type || !d.Document_No) continue;
 
-          if (aliases.size === 0) {
-            return { transactionType: d.Transaction_Type, documentNo: d.Document_No };
-          }
-
           const dStation = String(d.Station_Code || '').trim().toUpperCase();
           const dAssigned = String(d.Assigned_By || '').trim().toUpperCase();
           const dAssignedClean = dAssigned.includes('\\') ? dAssigned.split('\\').pop() : dAssigned;
-          const dCreatedBy = String(d.SystemCreatedBy || '').trim().toLowerCase();
 
-          if (
-            aliases.has(dStation) ||
-            aliases.has(dAssigned) ||
-            aliases.has(dAssignedClean) ||
-            (station && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(station) && dCreatedBy === station.toLowerCase())
-          ) {
-            console.log('[bc] Matched open dispatch:', d.Document_No, 'for station:', station);
+          // If dispatch has a Station_Code set, it MUST strictly match targetStation
+          if (dStation !== '') {
+            if (dStation === targetStation) {
+              console.log('[bc] Matched open dispatch by Station_Code:', d.Document_No, 'for station:', targetStation);
+              return { transactionType: d.Transaction_Type, documentNo: d.Document_No };
+            }
+            // Dispatched for a different station - DO NOT match
+            continue;
+          }
+
+          // If dispatch has NO Station_Code set (unassigned), fallback to checking mapped users for this station
+          if (mappedUsers.has(dAssigned) || mappedUsers.has(dAssignedClean)) {
+            console.log('[bc] Matched open dispatch by Assigned_By:', d.Document_No, 'for station:', targetStation);
             return { transactionType: d.Transaction_Type, documentNo: d.Document_No };
           }
         }
