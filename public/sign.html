@@ -2,38 +2,110 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Electronic Signpad</title>
-  <link rel="stylesheet" href="/style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>S&K Supermarche - Electronic Signpad</title>
+  <link rel="stylesheet" href="/style.css?v=5">
 </head>
 <body class="sign-body">
   <header class="topbar">
-    <h1>Authorized Signature</h1>
-    <span id="stationTag" class="status waiting">STATION</span>
-    <div id="status" class="status waiting">Waiting for a signature request…</div>
+    <div class="topbar-left">
+      <img src="/logo.png" alt="S&K Supermarche" class="topbar-logo">
+      <div class="topbar-titles">
+        <span class="topbar-brand">S&K SUPERMARCHE</span>
+        <span class="topbar-sub">Trésorerie &middot; Kinshasa RDC</span>
+      </div>
+    </div>
+    
+    <div class="topbar-right">
+      <div id="stationTag" class="chip station-chip">
+        <span class="dot live"></span>
+        <span class="chip-text">STATION</span>
+      </div>
+      <div id="status" class="status waiting">Waiting for document…</div>
+      <button id="btnFullscreen" class="btn-icon" title="Toggle Fullscreen" onclick="toggleFullscreen()">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+        </svg>
+      </button>
+    </div>
   </header>
 
-  <div id="noSession" class="page">
-    <p class="hint big">Waiting for a document from the Signature Monitoring portal…</p>
-  </div>
-
-  <div id="signView" class="page hidden">
-    <div id="reportPaper"></div>
-
-    <section class="actions">
-      <button id="btnClear" class="btn" disabled>Clear</button>
-      <button id="btnSave" class="btn primary" disabled>Save Signature</button>
-    </section>
-  </div>
-
-  <div id="successBox" class="hidden">
-    <div class="success">Signature saved for <b id="sDoc"></b>&nbsp;<br>
-      <span id="sPdf" style="font-size:14px; display:block; margin-top:8px;"></span>
+  <main class="main-content">
+    <!-- Waiting view -->
+    <div id="noSession" class="page waiting-page">
+      <div class="radar-wrap">
+        <div class="radar-circle"></div>
+        <div class="radar-circle delay"></div>
+        <div class="radar-center">
+          <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
+            <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path>
+            <path d="M2 2l7.586 7.586"></path>
+            <circle cx="11" cy="11" r="2"></circle>
+          </svg>
+        </div>
+      </div>
+      <h2 class="waiting-title">Station Ready &amp; Listening</h2>
+      <p class="waiting-sub">
+        When the cashier or accountant clicks <strong class="badge-action">Take Vendor Signature</strong> in Business Central, your transaction voucher will appear here automatically.
+      </p>
+      <div class="waiting-foot">
+        <span>Station mapped to Business Central Treasury Integration</span>
+      </div>
     </div>
-  </div>
 
-  <script src="/render.js"></script>
-  <script src="/app.js"></script>
-  <script src="/sign.js"></script>
+    <!-- Signing view (Document paper + canvas) -->
+    <div id="signView" class="page hidden">
+      <div id="reportPaper" class="paper-container"></div>
+
+      <section class="actions">
+        <button id="btnClear" class="btn secondary" disabled>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="1 4 1 10 7 10"></polyline>
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+          </svg>
+          <span>Effacer / Clear</span>
+        </button>
+        <button id="btnSave" class="btn primary save-btn" disabled>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <span>Valider la Signature / Save</span>
+        </button>
+      </section>
+    </div>
+
+    <!-- Success confirmation modal -->
+    <div id="successBox" class="success-wrap hidden">
+      <div class="success-card">
+        <div class="success-icon-wrap">
+          <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </div>
+        <h3>Signature Enregistrée!</h3>
+        <p class="success-sub">Document <b id="sDoc"></b> has been signed and transmitted to Business Central.</p>
+        <div id="sPdf" class="success-pdf-chip"></div>
+        <div class="success-timer">Ready for the next document in a few seconds…</div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="kiosk-footer">
+    <span>S&K SUPERMARCHE RDC &bull; SYSTÈME DE SIGNATURE ÉLECTRONIQUE</span>
+  </footer>
+
+  <script>
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(function () {});
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+      }
+    }
+  </script>
+  <script src="/render.js?v=5"></script>
+  <script src="/app.js?v=5"></script>
+  <script src="/sign.js?v=5"></script>
 </body>
 </html>

@@ -184,7 +184,11 @@ function sig(text, cls) {
 
 function init() {
   var sc = document.getElementById('stationChip');
-  if (sc) sc.textContent = STATION || 'NO STATION';
+  if (sc) {
+    var txt = sc.querySelector('.chip-text');
+    if (txt) txt.textContent = 'Station: ' + (STATION || 'NONE');
+    else sc.textContent = 'Station: ' + (STATION || 'NONE');
+  }
   document.getElementById('btnEndSession').addEventListener('click', endSession);
   showWaiting();
   if (!STATION) {

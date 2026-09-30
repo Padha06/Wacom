@@ -1,4 +1,6 @@
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
+const fs = require('fs');
+const path = require('path');
 
 const PAGE_W = 612;
 const PAGE_H = 792;
@@ -104,13 +106,33 @@ async function buildSignedPdf(rec, signatureImageBase64) {
 
   let y = PAGE_H - MARGIN;
 
-  // Title
-  const title = 'TREASURY TRANSACTION';
-  const titleW = bold.widthOfTextAtSize(title, 16);
-  page.drawText(title, { x: (PAGE_W - titleW) / 2, y: y, size: 16, font: bold, color: dark });
-  y -= 24;
-  page.drawLine({ start: { x: MARGIN, y: y }, end: { x: PAGE_W - MARGIN, y: y }, thickness: 1.4, color: dark });
-  y -= 24;
+  // Company Logo & Title
+  const logoPath = path.join(__dirname, 'public', 'logo.png');
+  if (fs.existsSync(logoPath)) {
+    try {
+      const logoBytes = fs.readFileSync(logoPath);
+      const logoImg = await doc.embedPng(logoBytes);
+      const scaled = logoImg.scaleToFit(85, 42);
+      page.drawImage(logoImg, {
+        x: MARGIN,
+        y: y - scaled.height,
+        width: scaled.width,
+        height: scaled.height
+      });
+    } catch (e) {}
+  }
+
+  const corpHeader = 'S&K SUPERMARCHE RDC - DIRECTION FINANCIERE';
+  page.drawText(corpHeader, { x: MARGIN + 95, y: y - 10, size: 9, font: bold, color: rgb(0.11, 0.31, 0.85) });
+  page.drawText('Kinshasa - République Démocratique du Congo', { x: MARGIN + 95, y: y - 22, size: 7.5, font: font, color: gray });
+
+  y -= 48;
+  const title = 'BON DE PAIEMENT / TREASURY TRANSACTION';
+  const titleW = bold.widthOfTextAtSize(title, 14);
+  page.drawText(title, { x: (PAGE_W - titleW) / 2, y: y, size: 14, font: bold, color: dark });
+  y -= 14;
+  page.drawLine({ start: { x: MARGIN, y: y }, end: { x: PAGE_W - MARGIN, y: y }, thickness: 1.5, color: dark });
+  y -= 20;
 
   // Meta fields (2 columns)
   const colL = MARGIN;

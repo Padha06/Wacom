@@ -167,7 +167,11 @@ async function poll() {
 initPad();
 (function () {
   var tag = document.getElementById('stationTag');
-  if (tag) tag.textContent = STATION || 'NO STATION';
+  if (tag) {
+    var txt = tag.querySelector('.chip-text');
+    if (txt) txt.textContent = 'STATION ' + (STATION || '');
+    else tag.textContent = 'STATION ' + (STATION || '');
+  }
 })();
 if (STATION) {
   poll();

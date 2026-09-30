@@ -1,28 +1,30 @@
-// Login page for the hosted signing site.
+// Login page for S&K Supermarche Wacom Signing Portal
 (function () {
   var form = document.getElementById('loginForm');
   var userEl = document.getElementById('username');
-  var passEl = document.getElementById('password');
   var errEl = document.getElementById('loginError');
   var btn = document.getElementById('loginBtn');
   var infoEl = document.getElementById('loginInfo');
 
-  if (!form || !userEl || !passEl || !btn) return;
+  if (!form || !userEl || !btn) return;
 
   function showError(msg) {
-    errEl.textContent = msg;
-    errEl.classList.remove('hidden');
+    if (errEl) {
+      errEl.textContent = msg;
+      errEl.classList.remove('hidden');
+    }
+    if (infoEl) infoEl.classList.add('hidden');
   }
 
   function showInfo(msg) {
-    if (!infoEl) return;
-    infoEl.textContent = msg;
-    infoEl.classList.remove('hidden');
+    if (infoEl) {
+      infoEl.textContent = msg;
+      infoEl.classList.remove('hidden');
+    }
+    if (errEl) errEl.classList.add('hidden');
   }
 
-  // After a successful login, go to the intended station page. The server appends
-  // ?redirect=/m/CON001 when a logged-out user tries to open a station page; fall
-  // back to document.referrer or this user's monitor.
+  // After a successful login, redirect to the station kiosk page
   function returnTo(dest, station, token) {
     var tokenSuffix = token ? '?token=' + encodeURIComponent(token) : '';
     if (dest) {
@@ -46,33 +48,46 @@
     var stationEl = document.getElementById('stationCode');
     var username = userEl.value.trim();
     var stationCode = stationEl ? stationEl.value.trim() : '';
-    var password = passEl.value;
-    if (!username && !stationCode) { showError('Enter your username or station code.'); return; }
+
+    if (!username && !stationCode) {
+      showError('Please enter your Business Central Username or Station Code.');
+      return;
+    }
+
     btn.disabled = true;
-    errEl.classList.add('hidden');
+    btn.classList.add('loading');
+    if (errEl) errEl.classList.add('hidden');
+
     try {
       var res = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username, stationCode: stationCode, password: password })
+        body: JSON.stringify({ username: username, stationCode: stationCode })
       });
       var j = await res.json().catch(function () { return {}; });
+
       if (!res.ok) {
-        showError(j.error || 'Login failed. Please check your credentials.');
+        showError(j.error || 'Login failed. Please check your username or station setup.');
         btn.disabled = false;
+        btn.classList.remove('loading');
         return;
       }
+
       if (j.token && typeof localStorage !== 'undefined') {
         localStorage.setItem('ws_token', j.token);
       }
-      showInfo('Sign-in successful for station ' + (j.station || stationCode || username) + ' — opening…');
+
+      var targetStation = j.station || stationCode || username;
+      showInfo('Connected to station ' + targetStation + ' — Opening kiosk…');
+
       var qdest = new URLSearchParams(window.location.search).get('redirect');
       setTimeout(function () {
-        returnTo(qdest, j.station || stationCode || username, j.token);
-      }, 150);
+        returnTo(qdest, targetStation, j.token);
+      }, 200);
     } catch (e) {
-      showError('Cannot reach the server: ' + e.message);
+      showError('Cannot connect to signing server: ' + e.message);
       btn.disabled = false;
+      btn.classList.remove('loading');
     }
   });
 })();

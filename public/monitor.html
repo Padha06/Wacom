@@ -3,42 +3,69 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Treasury Signature Monitoring</title>
-  <link rel="stylesheet" href="/style.css">
+  <title>S&K Supermarche - Treasury Signature Monitoring</title>
+  <link rel="stylesheet" href="/style.css?v=5">
 </head>
 <body class="monitor-body">
   <header class="topbar">
-    <h1>Treasury Signature Monitoring</h1>
+    <div class="topbar-left">
+      <img src="/logo.png" alt="S&K Supermarche" class="topbar-logo">
+      <div class="topbar-titles">
+        <span class="topbar-brand">S&K SUPERMARCHE</span>
+        <span class="topbar-sub">Supervision des Signatures &middot; Trésorerie</span>
+      </div>
+    </div>
     <div class="topbar-right">
-      <span id="stationChip" class="chip"></span>
-      <div id="tokenChip" class="status waiting">Token: …</div>
+      <span id="stationChip" class="chip station-chip">
+        <span class="dot live"></span>
+        <span class="chip-text">Station: …</span>
+      </span>
+      <div id="tokenChip" class="status waiting">BC API: …</div>
       <div id="mStatus" class="status waiting">Connecting…</div>
     </div>
   </header>
 
-  <!-- Waiting view -->
-  <section id="waitView" class="page">
-    <div class="wait-box">
-      <div class="wait-icon">✍</div>
-      <h2>Waiting for a document to sign…</h2>
-      <p class="hint">Use <b>Take Vendor Signature</b> on the treasury transaction in Business Central to send a document here.</p>
-    </div>
-  </section>
-
-  <!-- Report view -->
-  <section id="reportView" class="page hidden">
-    <div class="report-toolbar">
-      <div class="report-toolbar-right">
-        <span id="sessionDoc" class="chip"></span>
-        <span id="sigState" class="status waiting">Waiting…</span>
-        <button id="btnEndSession" class="btn" disabled>Ready for Next</button>
+  <main class="main-content">
+    <!-- Waiting view -->
+    <section id="waitView" class="page waiting-page">
+      <div class="radar-wrap">
+        <div class="radar-circle"></div>
+        <div class="radar-circle delay"></div>
+        <div class="radar-center">
+          <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
+            <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path>
+            <path d="M2 2l7.586 7.586"></path>
+            <circle cx="11" cy="11" r="2"></circle>
+          </svg>
+        </div>
       </div>
-    </div>
-    <div id="reportPaper"></div>
-  </section>
+      <h2 class="waiting-title">En attente de document / Waiting for Document…</h2>
+      <p class="waiting-sub">Click <strong>Take Vendor Signature</strong> on any Treasury Transaction card in Business Central to dispatch the document to this station.</p>
+    </section>
 
-  <script src="/render.js"></script>
-  <script src="/app.js"></script>
-  <script src="/monitor.js"></script>
+    <!-- Report view -->
+    <section id="reportView" class="page hidden">
+      <div class="report-toolbar">
+        <div class="report-toolbar-left">
+          <span class="toolbar-label">Active Document:</span>
+          <span id="sessionDoc" class="chip doc-chip"></span>
+        </div>
+        <div class="report-toolbar-right">
+          <span id="sigState" class="status waiting">Waiting…</span>
+          <button id="btnEndSession" class="btn secondary" disabled>Ready for Next</button>
+        </div>
+      </div>
+      <div id="reportPaper" class="paper-container"></div>
+    </section>
+  </main>
+
+  <footer class="kiosk-footer">
+    <span>S&K SUPERMARCHE RDC &bull; MONITORING TRÉSORERIE KINSHASA</span>
+  </footer>
+
+  <script src="/render.js?v=5"></script>
+  <script src="/app.js?v=5"></script>
+  <script src="/monitor.js?v=5"></script>
 </body>
 </html>

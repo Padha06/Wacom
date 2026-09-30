@@ -3,26 +3,63 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sign In - Wacom Signing Station</title>
-  <link rel="stylesheet" href="/style.css?v=4">
+  <title>Sign In - S&K Supermarche Treasury Signature</title>
+  <link rel="stylesheet" href="/style.css?v=5">
 </head>
 <body class="login-body">
+  <div class="login-backdrop"></div>
   <div class="login-card">
-    <h1>Wacom Signing Station</h1>
-    <p class="login-sub">Sign in with your username to open your station.</p>
+    <div class="login-brand">
+      <img src="/logo.png" alt="S&K Supermarche Logo" class="login-logo">
+      <div class="brand-pill">S&K SUPERMARCHE • RDC</div>
+    </div>
+    <h1>Signing Station Portal</h1>
+    <p class="login-sub">Enter your BC Username or Station Code to connect your Wacom kiosk.</p>
+    
     <form id="loginForm" method="post" action="/api/login" autocomplete="off">
       <input type="hidden" name="redirect" id="redirectField" value="">
-      <label class="login-label">Username / User ID</label>
-      <input id="username" name="username" class="login-input" type="text" autocomplete="username" placeholder="e.g. JOHN" required>
-      <label class="login-label">Station Code (Optional)</label>
-      <input id="stationCode" name="stationCode" class="login-input" type="text" placeholder="e.g. CABIN1">
-      <label class="login-label">Password (Optional)</label>
-      <input id="password" name="password" class="login-input" type="password" autocomplete="current-password">
+      
+      <div class="form-group">
+        <label class="login-label" for="username">Username / BC User ID</label>
+        <div class="input-wrap">
+          <svg class="input-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          <input id="username" name="username" class="login-input" type="text" autocomplete="username" placeholder="e.g. SEJAN.KHAN or MD.RAZA" required autofocus>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="login-label" for="stationCode">Station Code <span class="opt-tag">Optional</span></label>
+        <div class="input-wrap">
+          <svg class="input-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+            <line x1="8" y1="21" x2="16" y2="21"></line>
+            <line x1="12" y1="17" x2="12" y2="21"></line>
+          </svg>
+          <input id="stationCode" name="stationCode" class="login-input" type="text" placeholder="e.g. CON001, CON002">
+        </div>
+      </div>
+
       <div id="loginError" class="login-error hidden"></div>
-      <button id="loginBtn" class="btn primary login-btn" type="submit">Sign In</button>
       <div id="loginInfo" class="login-info hidden"></div>
+
+      <button id="loginBtn" class="btn primary login-btn" type="submit">
+        <span>Open Signing Station</span>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+          <polyline points="12 5 19 12 12 19"></polyline>
+        </svg>
+      </button>
     </form>
+
+    <div class="login-footer">
+      <span>Kinshasa • Lubumbashi • Goma • Kolwezi</span>
+      <small>Microsoft Dynamics 365 Business Central Treasury Integration</small>
+    </div>
   </div>
+
   <script>
     (function () {
       var q = new URLSearchParams(window.location.search);
@@ -38,6 +75,6 @@
       }
     })();
   </script>
-  <script src="/login.js"></script>
+  <script src="/login.js?v=5"></script>
 </body>
 </html>
