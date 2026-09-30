@@ -316,28 +316,25 @@ const handler = async (req, res) => {
       }
 
       // Query Business Central Signpad User Setup API
-      const bcCheck = await bc.validateSignpadUser(u || stationCode, stationCode);
+      const bcCheck = await bc.validateSignpadUser(u, stationCode);
       
+      // Strictly reject any user or station not registered in Business Central
+      if (!bcCheck || !bcCheck.matched) {
+        const invalidId = [u, stationCode].filter(Boolean).join(' / ');
+        const errMsg = 'Access denied: "' + invalidId + '" is not registered in Business Central Signpad User Setup.';
+        if (wantJson) return sendJson(res, 403, { error: errMsg });
+        return redirectTo(res, '/login?error=1&error_msg=' + encodeURIComponent(errMsg));
+      }
+
       // Check if user is set to INACTIVE in Business Central
-      if (bcCheck && bcCheck.matched && bcCheck.active === false) {
+      if (bcCheck.active === false) {
         const errMsg = 'Access denied: User signature setup is set to INACTIVE in Business Central.';
         if (wantJson) return sendJson(res, 403, { error: errMsg });
         return redirectTo(res, '/login?error=1&error_msg=' + encodeURIComponent(errMsg));
       }
 
-      // Target Station Selection:
-      // If BC setup matched an active user, use their mapped Station_Code or User_ID.
-      // Otherwise, use whichever stationCode / username was entered in the form.
-      let targetStation = '';
-      let loggedUser = '';
-
-      if (bcCheck && bcCheck.matched) {
-        targetStation = (bcCheck.stationCode || bcCheck.userId || stationCode || u).toUpperCase();
-        loggedUser = bcCheck.userId || bcCheck.wacomUserName || u;
-      } else {
-        targetStation = (stationCode || u).toUpperCase();
-        loggedUser = u || stationCode;
-      }
+      const targetStation = (bcCheck.stationCode || stationCode || bcCheck.userId).toUpperCase();
+      const loggedUser = bcCheck.userId || bcCheck.wacomUserName || u;
 
       const token = createAuthSession(loggedUser, targetStation);
       res.setHeader('Set-Cookie', 'ws_token=' + encodeURIComponent(token) + '; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age=' + (AUTH_TTL_MS / 1000));
