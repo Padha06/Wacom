@@ -105,7 +105,10 @@ module.exports = function (config) {
     // Signpad Station Users -> user's Station Code, and filtered here by Station_Code.
     async getOpenDispatch(station) {
       let filter = "Status eq 'Open'";
-      if (station) filter += " and Station_Code eq '" + esc(station) + "'";
+      if (station) {
+        const target = esc(station);
+        filter += " and (Station_Code eq '" + target + "' or Assigned_By eq '" + target + "' or SystemCreatedBy eq '" + target + "')";
+      }
       const path = apiBase + '/api/signpad/treasury/v1.0/signpadDispatches?$filter=' + encodeURIComponent(filter) + '&$orderby=Assigned_On desc';
       const body = await api(path);
       const list = body.value || [];

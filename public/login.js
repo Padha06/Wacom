@@ -46,7 +46,7 @@
     ev.preventDefault();
     var username = userEl.value.trim();
     var password = passEl.value;
-    if (!username || !password) { showError('Enter username and password.'); return; }
+    if (!username) { showError('Enter your username.'); return; }
     btn.disabled = true;
     errEl.classList.add('hidden');
     try {

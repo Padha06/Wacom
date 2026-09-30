@@ -290,22 +290,28 @@ const handler = async (req, res) => {
         pw = String(params.get('password') || '');
         dest = String(params.get('redirect') || '');
       }
-      const user = appUsers.get(u);
       const wantJson = ctype.indexOf('application/json') >= 0;
-      if (!user || user.password !== pw) {
-        if (wantJson) return sendJson(res, 401, { error: 'Invalid username or password.' });
-        return redirectTo(res, '/login?error=1');
+      let targetStation = '';
+      if (appUsers.size > 0 && appUsers.has(u)) {
+        const user = appUsers.get(u);
+        if (user.password && user.password !== pw) {
+          if (wantJson) return sendJson(res, 401, { error: 'Invalid username or password.' });
+          return redirectTo(res, '/login?error=1');
+        }
+        targetStation = user.station || u.toUpperCase();
+      } else {
+        if (!u) {
+          if (wantJson) return sendJson(res, 400, { error: 'Username is required.' });
+          return redirectTo(res, '/login?error=1');
+        }
+        targetStation = u.toUpperCase();
       }
-      if (!user.station) {
-        if (wantJson) return sendJson(res, 400, { error: 'This user is not mapped to a station.' });
-        return redirectTo(res, '/login?error=1');
-      }
-      const token = createAuthSession(u, user.station);
+      const token = createAuthSession(u, targetStation);
       res.setHeader('Set-Cookie', 'ws_token=' + encodeURIComponent(token) + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' + (AUTH_TTL_MS / 1000));
       if (wantJson) {
-        return sendJson(res, 200, { ok: true, token: token, station: user.station, username: u });
+        return sendJson(res, 200, { ok: true, token: token, station: targetStation, username: u });
       }
-      return redirectTo(res, dest || ('/s/' + user.station));
+      return redirectTo(res, dest || ('/s/' + encodeURIComponent(targetStation)));
     }
 
     if (p === '/api/logout' && req.method === 'POST') {
