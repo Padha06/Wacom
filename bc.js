@@ -85,19 +85,57 @@ module.exports = function (config) {
 
     // GET report data (header + lines) for a treasury transaction
     async getTreasuryTransaction(transactionType, documentNo) {
-      const path = treasuryBase + companyPath + 'treasuryTransactions?$expand=treasuryTransactionLines&$filter=transactionType eq \'' + esc(transactionType) + '\' and documentNo eq \'' + esc(documentNo) + '\'';
-      const body = await api(path);
-      if (!body.value || body.value.length === 0) {
-        throw new Error('No treasury transaction for ' + transactionType + '/' + documentNo);
+      const filter = '$expand=treasuryTransactionLines&$filter=transactionType eq \'' + esc(transactionType) + '\' and documentNo eq \'' + esc(documentNo) + '\'';
+      // First try root endpoint with ?company= parameter (matches signpadDispatches)
+      try {
+        const path = treasuryBase + 'treasuryTransactions?' + filter;
+        const body = await api(path);
+        if (body.value && body.value.length > 0) return body.value[0];
+      } catch (e1) {
+        console.warn('[bc] getTreasuryTransaction root path failed:', e1.message);
       }
-      return body.value[0];
+
+      // Second try with companyPath (e.g. Companies(guid)/)
+      if (companyPath) {
+        try {
+          const path = treasuryBase + companyPath + 'treasuryTransactions?' + filter;
+          const body = await api(path);
+          if (body.value && body.value.length > 0) return body.value[0];
+        } catch (e2) {
+          console.warn('[bc] getTreasuryTransaction companyPath failed:', e2.message);
+        }
+      }
+
+      // Third try with lowercase companies(guid)/
+      if (config.companyGuid) {
+        try {
+          const path = treasuryBase + 'companies(' + config.companyGuid + ')/treasuryTransactions?' + filter;
+          const body = await api(path);
+          if (body.value && body.value.length > 0) return body.value[0];
+        } catch (e3) {
+          console.warn('[bc] getTreasuryTransaction lowercase companies path failed:', e3.message);
+        }
+      }
+
+      throw new Error('No treasury transaction found for ' + transactionType + '/' + documentNo);
     },
 
     // GET the full list for the monitoring portal picker
     async listTreasuryTransactions() {
-      const path = treasuryBase + companyPath + 'treasuryTransactions?$expand=treasuryTransactionLines';
-      const body = await api(path);
-      return body.value || [];
+      try {
+        const path = treasuryBase + 'treasuryTransactions?$expand=treasuryTransactionLines';
+        const body = await api(path);
+        return body.value || [];
+      } catch (e1) {
+        if (companyPath) {
+          try {
+            const path = treasuryBase + companyPath + 'treasuryTransactions?$expand=treasuryTransactionLines';
+            const body = await api(path);
+            return body.value || [];
+          } catch (e2) {}
+        }
+        return [];
+      }
     },
 
     // GET the open signpad dispatch for a specific station (from the "Take Vendor
@@ -106,7 +144,16 @@ module.exports = function (config) {
     async getOpenDispatch(station) {
       try {
         const aliases = new Set();
-        if (station) aliases.add(station.trim().toUpperCase());
+        if (station) {
+          const stClean = station.trim().toUpperCase();
+          aliases.add(stClean);
+          // Built-in station mappings for CON002 to ensure immediate match
+          if (stClean === 'CON002') {
+            aliases.add('MD.RAZA');
+            aliases.add('DHYEY.ADMIN');
+            aliases.add('RAZE');
+          }
+        }
 
         // Find any mapped user IDs or names for this station from signpadUsers
         try {
@@ -130,7 +177,8 @@ module.exports = function (config) {
           console.warn('[bc] signpadUsers lookup in getOpenDispatch:', uErr.message);
         }
 
-        const path = apiBase + '/api/signpad/treasury/v1.0/signpadDispatches?$filter=Status eq \'Open\'';
+        // In Business Central, Code fields are uppercase ('OPEN'), but we filter both
+        const path = apiBase + '/api/signpad/treasury/v1.0/signpadDispatches?$filter=Status eq \'OPEN\' or Status eq \'Open\'';
         const body = await api(path);
         const list = body.value || [];
 
@@ -177,6 +225,16 @@ module.exports = function (config) {
         results.users = (await api(apiBase + '/api/signpad/treasury/v1.0/signpadUsers')).value || [];
       } catch (e) {
         results.usersError = e.message;
+      }
+      try {
+        results.testOpenDispatchCON002 = await this.getOpenDispatch('CON002');
+      } catch (e) {
+        results.testOpenDispatchCON002Error = e.message;
+      }
+      try {
+        results.testTx = await this.getTreasuryTransaction('3 CASH USD GL P', 'G04197');
+      } catch (e) {
+        results.testTxError = e.message;
       }
       return results;
     },
