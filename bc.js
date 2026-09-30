@@ -290,7 +290,7 @@ module.exports = function (config) {
           const uStation = String(u.Station_Code || '').trim().toLowerCase();
           const isActive = u.Active !== false;
 
-          const userMatch = searchUser && (uId === searchUser || uWacom === searchUser || uStation === searchUser);
+          const userMatch = !searchUser || (uId === searchUser || uWacom === searchUser || uStation === searchUser);
           const stationMatch = !searchStation || (uStation === searchStation || uId === searchStation || uWacom === searchStation);
 
           if (userMatch && stationMatch) {
