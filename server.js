@@ -73,18 +73,19 @@ if (!_appUsersSrc) {
 }
 parseAppUsers(_appUsersSrc);
 
-// ---- Auth sessions: token -> { username, station, createdAt } ----
-const authSessions = new Map();
+// ---- Auth sessions: stateless HMAC signed tokens for Vercel serverless ----
 const AUTH_TTL_MS = 12 * 60 * 60 * 1000; // 12h
-
-function makeAuthToken() {
-  return crypto.randomBytes(24).toString('hex');
-}
+const AUTH_SECRET = process.env.CLIENT_SECRET || process.env.AUTH_SECRET || 'wacom-signing-station-secret-key-2026';
 
 function createAuthSession(username, station) {
-  const token = makeAuthToken();
-  authSessions.set(token, { username, station, createdAt: Date.now() });
-  return token;
+  const payload = JSON.stringify({
+    u: username,
+    s: station,
+    exp: Date.now() + AUTH_TTL_MS
+  });
+  const b64 = Buffer.from(payload).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  const hmac = crypto.createHmac('sha256', AUTH_SECRET).update(b64).digest('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  return b64 + '.' + hmac;
 }
 
 function getAuthToken(req) {
@@ -97,12 +98,22 @@ function getAuthToken(req) {
 }
 
 function authFor(req) {
-  const token = getAuthToken(req);
-  if (!token) return null;
-  const s = authSessions.get(token);
-  if (!s) return null;
-  if (Date.now() - s.createdAt > AUTH_TTL_MS) { authSessions.delete(token); return null; }
-  return s;
+  const tokenStr = getAuthToken(req);
+  if (!tokenStr || typeof tokenStr !== 'string') return null;
+  const parts = tokenStr.split('.');
+  if (parts.length !== 2) return null;
+  const [b64, signature] = parts;
+  const expectedHmac = crypto.createHmac('sha256', AUTH_SECRET).update(b64).digest('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  if (signature !== expectedHmac) return null;
+  try {
+    let rawStr = b64.replace(/-/g, '+').replace(/_/g, '/');
+    while (rawStr.length % 4 !== 0) rawStr += '=';
+    const data = JSON.parse(Buffer.from(rawStr, 'base64').toString('utf8'));
+    if (Date.now() > data.exp) return null;
+    return { username: data.u, station: data.s };
+  } catch (e) {
+    return null;
+  }
 }
 
 // ---- Signing sessions keyed by station ----
@@ -333,8 +344,6 @@ const handler = async (req, res) => {
     }
 
     if (p === '/api/logout' && req.method === 'POST') {
-      const token = getAuthToken(req);
-      if (token) authSessions.delete(token);
       res.setHeader('Set-Cookie', 'ws_token=; Path=/; HttpOnly; Max-Age=0');
       return sendJson(res, 200, { ok: true });
     }
