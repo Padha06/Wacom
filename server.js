@@ -266,8 +266,13 @@ async function ensureActiveSession(station) {
   // Switch to the newest one, but only if the user hasn't started signing yet;
   // never wipe a signature in progress.
   if (cur && cur.strokes.length > 0 && cur.status !== 'signed') return cur;
-  const record = await cachedTransaction(dispatch.transactionType, dispatch.documentNo);
-  return makeSession(station, dispatch.transactionType, dispatch.documentNo, record);
+  try {
+    const record = await cachedTransaction(dispatch.transactionType, dispatch.documentNo);
+    return makeSession(station, dispatch.transactionType, dispatch.documentNo, record);
+  } catch (err) {
+    console.error('[server] cachedTransaction failed for', dispatch, err.message);
+    return null;
+  }
 }
 
 function sendEvent(sesh, name, data) {
@@ -366,6 +371,16 @@ const handler = async (req, res) => {
         const auth = authFor(req);
         const st = (url.searchParams.get('station') || (auth && auth.station) || '').toUpperCase();
         return sendJson(res, 200, { ok: true, station: st, token: bc.tokenInfo() });
+      }
+
+      if (p === '/api/debug' && req.method === 'GET') {
+        const debugData = await bc.getDebugData();
+        return sendJson(res, 200, {
+          ok: true,
+          company: config.company,
+          hasCompanyGuid: !!config.companyGuid,
+          debug: debugData
+        });
       }
 
       // Station is determined from query ?station=, cookie/token auth, or header x-station

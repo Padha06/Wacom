@@ -14,7 +14,7 @@ module.exports = function (config) {
 
   const apiBase = 'https://api.businesscentral.dynamics.com/v2.0/' + tenantId + '/' + environment;
   const treasuryBase = apiBase + '/api/DCSPL/treasury/v2.0/';
-  const companyPath = 'Companies(' + (config.companyGuid || '') + ')';
+  const companyPath = config.companyGuid ? ('Companies(' + config.companyGuid + ')/') : '';
   const companyQuery = 'company=' + encodeURIComponent(config.company || '');
 
   let token = null;
@@ -85,7 +85,7 @@ module.exports = function (config) {
 
     // GET report data (header + lines) for a treasury transaction
     async getTreasuryTransaction(transactionType, documentNo) {
-      const path = treasuryBase + companyPath + '/treasuryTransactions?$expand=treasuryTransactionLines&$filter=transactionType eq \'' + esc(transactionType) + '\' and documentNo eq \'' + esc(documentNo) + '\'';
+      const path = treasuryBase + companyPath + 'treasuryTransactions?$expand=treasuryTransactionLines&$filter=transactionType eq \'' + esc(transactionType) + '\' and documentNo eq \'' + esc(documentNo) + '\'';
       const body = await api(path);
       if (!body.value || body.value.length === 0) {
         throw new Error('No treasury transaction for ' + transactionType + '/' + documentNo);
@@ -95,7 +95,7 @@ module.exports = function (config) {
 
     // GET the full list for the monitoring portal picker
     async listTreasuryTransactions() {
-      const path = treasuryBase + companyPath + '/treasuryTransactions?$expand=treasuryTransactionLines';
+      const path = treasuryBase + companyPath + 'treasuryTransactions?$expand=treasuryTransactionLines';
       const body = await api(path);
       return body.value || [];
     },
@@ -105,25 +105,57 @@ module.exports = function (config) {
     // Signpad Station Users -> user's Station Code, and filtered here by Station_Code.
     async getOpenDispatch(station) {
       try {
-        let filter = "Status eq 'Open'";
-        if (station) {
-          const target = esc(station);
-          const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(target);
-          if (isGuid) {
-            filter += " and (Station_Code eq '" + target + "' or Assigned_By eq '" + target + "' or SystemCreatedBy eq " + target + ")";
-          } else {
-            filter += " and (Station_Code eq '" + target + "' or Assigned_By eq '" + target + "')";
+        const aliases = new Set();
+        if (station) aliases.add(station.trim().toUpperCase());
+
+        // Find any mapped user IDs or names for this station from signpadUsers
+        try {
+          const userBody = await api(apiBase + '/api/signpad/treasury/v1.0/signpadUsers');
+          const uList = userBody.value || [];
+          for (const u of uList) {
+            const uStation = String(u.Station_Code || '').trim().toUpperCase();
+            const uId = String(u.User_ID || '').trim().toUpperCase();
+            const uWacom = String(u.Wacom_User_Name || '').trim().toUpperCase();
+
+            if (aliases.has(uStation) || aliases.has(uId) || aliases.has(uWacom)) {
+              if (uStation) aliases.add(uStation);
+              if (uId) {
+                aliases.add(uId);
+                if (uId.includes('\\')) aliases.add(uId.split('\\').pop());
+              }
+              if (uWacom) aliases.add(uWacom);
+            }
           }
+        } catch (uErr) {
+          console.warn('[bc] signpadUsers lookup in getOpenDispatch:', uErr.message);
         }
-        const queryParams = new URLSearchParams({
-          '$filter': filter,
-          '$orderby': 'Assigned_On desc'
-        });
-        const path = apiBase + '/api/signpad/treasury/v1.0/signpadDispatches?' + queryParams.toString();
+
+        const path = apiBase + '/api/signpad/treasury/v1.0/signpadDispatches?$filter=Status eq \'Open\'';
         const body = await api(path);
         const list = body.value || [];
+
+        // Sort newest first
+        list.sort((a, b) => new Date(b.Assigned_On || 0) - new Date(a.Assigned_On || 0));
+
         for (const d of list) {
-          if (d.Transaction_Type && d.Document_No) {
+          if (!d.Transaction_Type || !d.Document_No) continue;
+
+          if (aliases.size === 0) {
+            return { transactionType: d.Transaction_Type, documentNo: d.Document_No };
+          }
+
+          const dStation = String(d.Station_Code || '').trim().toUpperCase();
+          const dAssigned = String(d.Assigned_By || '').trim().toUpperCase();
+          const dAssignedClean = dAssigned.includes('\\') ? dAssigned.split('\\').pop() : dAssigned;
+          const dCreatedBy = String(d.SystemCreatedBy || '').trim().toLowerCase();
+
+          if (
+            aliases.has(dStation) ||
+            aliases.has(dAssigned) ||
+            aliases.has(dAssignedClean) ||
+            (station && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(station) && dCreatedBy === station.toLowerCase())
+          ) {
+            console.log('[bc] Matched open dispatch:', d.Document_No, 'for station:', station);
             return { transactionType: d.Transaction_Type, documentNo: d.Document_No };
           }
         }
@@ -132,6 +164,21 @@ module.exports = function (config) {
         console.warn('[bc] getOpenDispatch warning:', err.message);
         return null;
       }
+    },
+
+    async getDebugData() {
+      const results = {};
+      try {
+        results.dispatches = (await api(apiBase + '/api/signpad/treasury/v1.0/signpadDispatches')).value || [];
+      } catch (e) {
+        results.dispatchesError = e.message;
+      }
+      try {
+        results.users = (await api(apiBase + '/api/signpad/treasury/v1.0/signpadUsers')).value || [];
+      } catch (e) {
+        results.usersError = e.message;
+      }
+      return results;
     },
 
     // Close a dispatch after the signature has been saved
