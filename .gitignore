@@ -6,6 +6,9 @@ config.json
 # Node
 node_modules/
 
+# Vercel CLI local link
+.vercel
+
 # Logs
 *.log
 server*.log
