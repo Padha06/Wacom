@@ -186,7 +186,7 @@ module.exports = function (config) {
           if (dStation !== '') {
             if (dStation === targetStation) {
               console.log('[bc] Matched open dispatch by Station_Code:', d.Document_No, 'for station:', targetStation);
-              return { transactionType: d.Transaction_Type, documentNo: d.Document_No };
+              return { transactionType: d.Transaction_Type, documentNo: d.Document_No, assignedOn: d.Assigned_On };
             }
             // Dispatched for a different station - DO NOT match
             continue;
@@ -195,7 +195,7 @@ module.exports = function (config) {
           // If dispatch has NO Station_Code set (unassigned), fallback to checking mapped users for this station
           if (mappedUsers.has(dAssigned) || mappedUsers.has(dAssignedClean)) {
             console.log('[bc] Matched open dispatch by Assigned_By:', d.Document_No, 'for station:', targetStation);
-            return { transactionType: d.Transaction_Type, documentNo: d.Document_No };
+            return { transactionType: d.Transaction_Type, documentNo: d.Document_No, assignedOn: d.Assigned_On };
           }
         }
         return null;
@@ -232,8 +232,32 @@ module.exports = function (config) {
 
     // Close a dispatch after the signature has been saved
     async completeDispatch(transactionType, documentNo) {
-      const path = apiBase + '/api/signpad/treasury/v1.0/signpadDispatches(Transaction_Type=\'' + encodeURIComponent(transactionType) + '\',Document_No=\'' + encodeURIComponent(documentNo) + '\')';
-      await api(path, { method: 'DELETE' });
+      try {
+        const filter = "Transaction_Type eq '" + esc(transactionType) + "' and Document_No eq '" + esc(documentNo) + "'";
+        const path = apiBase + '/api/signpad/treasury/v1.0/signpadDispatches?$filter=' + encodeURIComponent(filter);
+        const res = await api(path);
+        const list = res.value || [];
+        for (const item of list) {
+          const id = item.id || item.SystemId;
+          if (id) {
+            try {
+              await api(apiBase + '/api/signpad/treasury/v1.0/signpadDispatches(' + id + ')', { method: 'DELETE' });
+              console.log('[bc] Deleted dispatch id:', id);
+            } catch (ed1) {
+              try {
+                await api(apiBase + '/api/signpad/treasury/v1.0/signpadDispatches(' + id + ')', {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json', 'If-Match': '*' },
+                  body: JSON.stringify({ Status: 'Signed' })
+                });
+                console.log('[bc] Patched dispatch status to Signed for id:', id);
+              } catch (ep1) {}
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[bc] completeDispatch warning:', err.message);
+      }
     },
 
     // POST the signature to the OData function
@@ -258,19 +282,34 @@ module.exports = function (config) {
 
     // POST the full signed PDF as an attachment to the treasury transaction.
     async uploadDocument(transactionType, documentNo, fileName, base64Content) {
-      const path = apiBase + '/ODataV4/TreasureAttachment_UploadDocumentByKey?company=' + encodeURIComponent(config.companyGuid);
+      base64Content = String(base64Content || '');
+      const comma = base64Content.indexOf(',');
+      if (comma >= 0) base64Content = base64Content.slice(comma + 1);
+
       const body = {
         transactionType: String(transactionType),
         documentNo: String(documentNo),
         fileName: String(fileName),
-        base64Content: String(base64Content || '')
+        base64Content: base64Content
       };
-      const res = await api(path, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      }, false);
-      return res;
+
+      // Call TreasureSignature_UploadDocumentByKey (same web service as signature upload)
+      try {
+        const path = apiBase + '/ODataV4/TreasureSignature_UploadDocumentByKey';
+        return await api(path, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+      } catch (e1) {
+        console.warn('[bc] TreasureSignature_UploadDocumentByKey failed, trying fallback:', e1.message);
+        const pathFallback = apiBase + '/ODataV4/TreasureAttachment_UploadDocumentByKey';
+        return await api(pathFallback, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+      }
     },
 
     // Query BC for active Signpad User Setup to validate user login & get station code

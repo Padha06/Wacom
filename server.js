@@ -212,6 +212,7 @@ function readBody(req) {
 
 const lastDispatchCheck = new Map();
 const txCache = new Map();
+const signedDispatches = new Map();
 
 async function checkDispatchQueue(station, force) {
   const now = Date.now();
@@ -256,6 +257,16 @@ async function ensureActiveSession(station) {
   if (!dispatch) {
     return (cur && cur.status !== 'signed') ? cur : null;
   }
+
+  // Prevent re-appearance: a submitted document will never re-appear unless
+  // re-dispatched via "Take Vendor Signature" with a newer timestamp in BC.
+  const signKey = station + ':' + dispatch.transactionType + ':' + dispatch.documentNo;
+  const signedAt = signedDispatches.get(signKey) || 0;
+  const dispatchTime = dispatch.assignedOn ? new Date(dispatch.assignedOn).getTime() : 0;
+  if (signedAt && (!dispatchTime || dispatchTime <= signedAt)) {
+    return (cur && cur.status !== 'signed') ? cur : null;
+  }
+
   // Same dispatch as the current session -> keep it (do not reset the canvas).
   if (cur && cur.status !== 'signed' &&
       cur.transactionType === dispatch.transactionType &&
@@ -443,6 +454,10 @@ const handler = async (req, res) => {
           sesh.status = 'signed';
           sesh.savedAt = new Date().toISOString();
 
+          // Record as signed so this document never re-appears on the waiting window
+          const signKey = station + ':' + sesh.transactionType + ':' + sesh.documentNo;
+          signedDispatches.set(signKey, Date.now());
+
           // Build the full signed PDF (report + signature) and upload it as an
           // attachment to the same treasury transaction.
           const pdfResult = { fileName: '', pdfUploaded: false, pdfError: null };
@@ -459,6 +474,15 @@ const handler = async (req, res) => {
 
           try { await bc.completeDispatch(sesh.transactionType, sesh.documentNo); } catch (e) {}
           sendEvent(sesh, 'saved', { savedAt: sesh.savedAt });
+
+          // Reset station session after kiosk displays confirmation
+          setTimeout(() => {
+            const s = sessions.get(station);
+            if (s && s.id === sesh.id) {
+              sessions.delete(station);
+            }
+          }, 3500);
+
           return sendJson(res, 200, {
             ok: true, savedAt: sesh.savedAt,
             fileName: pdfResult.fileName, pdfUploaded: pdfResult.pdfUploaded, pdfError: pdfResult.pdfError
